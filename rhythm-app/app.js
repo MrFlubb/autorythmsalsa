@@ -391,6 +391,12 @@ function handleSelectedFile(file) {
   
   // Update view label
   document.getElementById('active-filename').textContent = file.name;
+
+  // Update customizable video title input
+  const titleInput = document.getElementById('input-video-title');
+  if (titleInput) {
+    titleInput.value = file.name.replace(/\.[^/.]+$/, "");
+  }
   
   // Expose Loading overlay
   document.getElementById('loading-overlay').classList.remove('hidden');
@@ -482,6 +488,12 @@ function handleYoutubeImport(youtubeUrl) {
       activeFilename = videoTitle;
       placedDownbeats = [];
       document.getElementById('active-filename').textContent = activeFilename;
+
+      // Update customizable video title input
+      const titleInput = document.getElementById('input-video-title');
+      if (titleInput) {
+        titleInput.value = videoTitle;
+      }
 
       if (loadingTitle) loadingTitle.textContent = "Décodage de la piste audio...";
       if (loadingDesc) loadingDesc.textContent = "Analyse spectrale et synchronisation tempo salsa...";
@@ -996,20 +1008,40 @@ function drawVideoFrame(playbackTime) {
   videoCtx.fillStyle = '#FFFFFF';
   videoCtx.fillRect(0, 0, width, height);
 
-  // 2. Head Title Drawing (Filenames without extension)
+  // 2. Head Title Drawing (Filenames without extension or custom user text)
   videoCtx.save();
   videoCtx.fillStyle = '#1A1A1A';
   videoCtx.textAlign = 'center';
-  videoCtx.font = '500 48px Inter, system-ui, sans-serif';
   
   let cleanTitle = "Salsa Rhythm Sync";
-  if (activeFilename) {
+  const customTitleInput = document.getElementById('input-video-title');
+  if (customTitleInput && customTitleInput.value.trim() !== "") {
+    cleanTitle = customTitleInput.value.trim();
+  } else if (activeFilename) {
     // Remove directory path and extension
     cleanTitle = activeFilename.replace(/\.[^/.]+$/, "");
-    if (cleanTitle.length > 25) {
-      cleanTitle = cleanTitle.substring(0, 22) + "...";
+  }
+
+  // Adjust font size dynamically to avoid canvas overflow
+  let fontSize = 48;
+  videoCtx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+  let textWidth = videoCtx.measureText(cleanTitle).width;
+  const maxTitleWidth = width - 120; // 120px padding
+  if (textWidth > maxTitleWidth) {
+    fontSize = Math.floor(48 * (maxTitleWidth / textWidth));
+    if (fontSize < 24) fontSize = 24; // floor limits
+    videoCtx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
+    textWidth = videoCtx.measureText(cleanTitle).width;
+    // If still too long, truncate with ellipsis
+    if (textWidth > maxTitleWidth) {
+      let tempTitle = cleanTitle;
+      while (tempTitle.length > 0 && videoCtx.measureText(tempTitle + "...").width > maxTitleWidth) {
+        tempTitle = tempTitle.slice(0, -1);
+      }
+      cleanTitle = tempTitle + "...";
     }
   }
+
   videoCtx.globalAlpha = 0.55;
   videoCtx.fillText(cleanTitle, width / 2, 260);
   videoCtx.restore();
@@ -1563,7 +1595,13 @@ function saveExportedBlob() {
       
       // Compute responsive filename
       let saveFilename = "salsa_rhythm_sync_demonstration.webm";
-      if (activeFilename) {
+      const customTitleInput = document.getElementById('input-video-title');
+      const customTitle = customTitleInput ? customTitleInput.value.trim() : "";
+      if (customTitle) {
+        // Sanitize title for filename
+        const safeTitle = customTitle.replace(/[^a-zA-Z0-9_\-\s]/g, "_").trim();
+        saveFilename = `${safeTitle}_salsa_sync.webm`;
+      } else if (activeFilename) {
         const titleBody = activeFilename.replace(/\.[^/.]+$/, "");
         saveFilename = `${titleBody}_salsa_sync.webm`;
       }

@@ -21,11 +21,14 @@ app.get('/api/download-youtube-audio', async (req, res) => {
 
   // List of public Cobalt APIs to try in order of preference
   const cobaltEndpoints = [
-    'https://cobalt.canine.tools',
-    'https://cobalt.meowing.de',
-    'https://cobalt.esb.is',
-    'https://api.cobalt.tools',
-    'https://cobalt.api.red'
+    'https://api.dl.woof.monster',
+    'https://cobaltapi.kittycat.boo',
+    'https://fox.kittycat.boo',
+    'https://dog.kittycat.boo',
+    'https://cobaltapi.cjs.nz',
+    'https://cobaltapi.squair.xyz',
+    'https://api.cobalt.blackcat.sweeux.org',
+    'https://api.cobalt.liubquanti.click'
   ];
 
   let lastError = null;
@@ -34,7 +37,10 @@ app.get('/api/download-youtube-audio', async (req, res) => {
     try {
       console.log(`[YouTube Proxy] Attempting Cobalt endpoint: ${endpoint} for URL: ${ytUrl}`);
 
-      // Call public Cobalt instance
+      // Call public Cobalt instance with a strict 4.5 second timeout to maintain high responsiveness
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -46,11 +52,11 @@ app.get('/api/download-youtube-audio', async (req, res) => {
           url: ytUrl,
           downloadMode: 'audio',
           audioFormat: 'mp3',
-          audioQuality: '128', // ensure fast download (v7)
-          audioBitrate: '128', // ensure fast download (v10)
-          isAudioOnly: true
-        })
+          audioBitrate: '128'
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -79,12 +85,17 @@ app.get('/api/download-youtube-audio', async (req, res) => {
 
       console.log(`[YouTube Proxy] Fetching audio from direct stream URL: ${audioUrl}`);
       
-      // Fetch the binary audio stream and proxy it back to client
+      // Fetch the binary audio stream with an 8 second timeout to avoid hanging
+      const streamController = new AbortController();
+      const streamTimeoutId = setTimeout(() => streamController.abort(), 8000);
+
       const audioStreamResponse = await fetch(audioUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
+        },
+        signal: streamController.signal
       });
+      clearTimeout(streamTimeoutId);
       
       if (!audioStreamResponse.ok) {
         console.warn(`[YouTube Proxy] Failed to fetch direct audio stream from ${audioUrl}. Status: ${audioStreamResponse.status}`);
@@ -92,11 +103,28 @@ app.get('/api/download-youtube-audio', async (req, res) => {
         continue;
       }
 
-      // Proxy back content headers
-      res.setHeader('Content-Type', audioStreamResponse.headers.get('Content-Type') || 'audio/mpeg');
-      res.setHeader('Content-Disposition', 'inline; filename="youtube_audio.mp3"');
+      // Check Content-Type to make sure we are not piping a text, HTML, or JSON error page
+      const contentType = audioStreamResponse.headers.get('Content-Type') || '';
+      console.log(`[YouTube Proxy] Stream response Content-Type: ${contentType}`);
+      if (contentType.includes('text/html') || contentType.includes('application/json') || contentType.includes('text/plain')) {
+        console.warn(`[YouTube Proxy] Stream URL retrieved from ${endpoint} returned format ${contentType} instead of binary audio stream.`);
+        lastError = "Un des serveurs a renvoyé du texte/HTML ou JSON au lieu d'un flux audio (blocage ou CAPTCHA).";
+        continue;
+      }
 
       const buffer = await audioStreamResponse.arrayBuffer();
+      if (buffer.byteLength < 25000) {
+        const textDecoder = new TextDecoder('utf-8');
+        const preview = textDecoder.decode(buffer.slice(0, 1000));
+        console.warn(`[YouTube Proxy] Downloaded audio buffer is too small (${buffer.byteLength} bytes) to be valid audio. Preview: ${preview}`);
+        lastError = "Le fichier téléchargé est incomplet ou corrompu (possible blocage par YouTube).";
+        continue;
+      }
+
+      // Proxy back content headers
+      res.setHeader('Content-Type', contentType || 'audio/mpeg');
+      res.setHeader('Content-Disposition', 'inline; filename="youtube_audio.mp3"');
+
       console.log(`[YouTube Proxy] Successfully piped ${buffer.byteLength} bytes to client from ${endpoint}`);
       return res.send(Buffer.from(buffer));
 
