@@ -1,13 +1,91 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <meta http-equiv="refresh" content="0; url=rhythm-app/index.html" />
+    <title>Salsa Rhythm Sync - Redirection...</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background-color: #f9fafb;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        text-align: center;
+      }
+      .card {
+        background: white;
+        padding: 2.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+        width: 100%;
+        border: 1px solid #f3f4f6;
+      }
+      .logo {
+        width: 48px;
+        height: 48px;
+        background-color: #ef4444;
+        color: white;
+        border-radius: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #111827;
+      }
+      p {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin-bottom: 1.5rem;
+        line-height: 1.25rem;
+      }
+      .loader {
+        border: 3px solid #f3f4f6;
+        border-top: 3px solid #ef4444;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1.5rem auto;
+      }
+      a {
+        color: #ef4444;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      // Immediate redirection
+      window.location.replace("rhythm-app/index.html");
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="card">
+      <div class="logo">S</div>
+      <h1>Salsa Rhythm Sync</h1>
+      <div class="loader"></div>
+      <p>Redirection en cours vers l'application...</p>
+      <p class="text-xs text-gray-400">Si l'application ne charge pas automatiquement, <a href="rhythm-app/index.html">cliquez ici pour y accéder</a>.</p>
+    </div>
   </body>
 </html>
-

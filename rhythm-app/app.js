@@ -446,6 +446,91 @@ function handleSelectedFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
+// Direct frontend fallback for download-youtube-audio when running as a static site (e.g., GitHub Pages)
+async function fetchYoutubeAudioDirectly(youtubeUrl) {
+  const cobaltEndpoints = [
+    'https://api.dl.woof.monster',
+    'https://cobaltapi.kittycat.boo',
+    'https://fox.kittycat.boo',
+    'https://dog.kittycat.boo',
+    'https://cobaltapi.cjs.nz',
+    'https://cobaltapi.squair.xyz',
+    'https://api.cobalt.blackcat.sweeux.org',
+    'https://api.cobalt.liubquanti.click'
+  ];
+
+  let lastError = null;
+
+  for (const endpoint of cobaltEndpoints) {
+    try {
+      console.log(`[Frontend Fallback] Trying Cobalt endpoint: ${endpoint}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: youtubeUrl,
+          downloadMode: 'audio',
+          audioFormat: 'mp3',
+          audioBitrate: '128'
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        lastError = `Status ${response.status} from ${endpoint}`;
+        continue;
+      }
+
+      const data = await response.json();
+      if (data.status === 'error' || data.type === 'error' || data.error) {
+        lastError = data.text || (data.error && data.error.message) || data.message || "Extraction error";
+        continue;
+      }
+
+      const audioUrl = data.url || (data.picker && data.picker[0] && data.picker[0].url) || (data.picker && data.picker[0] && data.picker[0].audio);
+      if (!audioUrl) {
+        lastError = "No stream URL in Cobalt response";
+        continue;
+      }
+
+      console.log(`[Frontend Fallback] Found direct stream URL: ${audioUrl}. Fetching audio data...`);
+      const streamController = new AbortController();
+      const streamTimeout = setTimeout(() => streamController.abort(), 10000);
+
+      const audioResponse = await fetch(audioUrl, {
+        signal: streamController.signal
+      });
+      clearTimeout(streamTimeout);
+
+      if (!audioResponse.ok) {
+        lastError = `Failed to get audio stream: ${audioResponse.status}`;
+        continue;
+      }
+
+      const arrayBuffer = await audioResponse.arrayBuffer();
+      if (arrayBuffer.byteLength < 10000) {
+        lastError = "Downloaded audio file was too small or corrupted.";
+        continue;
+      }
+
+      console.log(`[Frontend Fallback] Successfully fetched ${arrayBuffer.byteLength} bytes of audio directly from ${endpoint}`);
+      return arrayBuffer;
+    } catch (err) {
+      console.warn(`[Frontend Fallback] Endpoint ${endpoint} failed:`, err);
+      lastError = err.message || err;
+    }
+  }
+
+  throw new Error(`Tous les serveurs d'extraction ont échoué. Détail : ${lastError}`);
+}
+
 // Fetch and decode audio via YouTube Link Extractor Proxy API
 function handleYoutubeImport(youtubeUrl) {
   // Show UI Loading states
@@ -463,12 +548,26 @@ function handleYoutubeImport(youtubeUrl) {
 
   fetch(`/api/download-youtube-audio?url=${encodeURIComponent(youtubeUrl)}`)
     .then(response => {
+      if (response.status === 404) {
+        console.log("[YouTube Import] API endpoint returned 404. Falling back to direct client-side Cobalt querying...");
+        return fetchYoutubeAudioDirectly(youtubeUrl);
+      }
       if (!response.ok) {
         return response.json().then(err => {
           throw new Error(err.error || "Le serveur de téléchargement a renvoyé une erreur.");
+        }).catch(() => {
+          throw new Error(`Erreur du proxy (${response.status}). Essai de l'extraction directe...`);
         });
       }
       return response.arrayBuffer();
+    })
+    .catch(error => {
+      // Catch network transitions, like if the server is off, or if we explicitly threw direct fallback notice
+      if (error.message && (error.message.includes("Essai") || error.message.includes("Failed to fetch") || error.message.includes("fetch"))) {
+        console.log("[YouTube Import] Server unavailable or proxy error. Trying direct browser extraction...");
+        return fetchYoutubeAudioDirectly(youtubeUrl);
+      }
+      throw error;
     })
     .then(arrayBuffer => {
       let videoTitle = "Musique YouTube";
