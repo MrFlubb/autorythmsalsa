@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salsa Rhythm Sync</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="h-full flex flex-col">
+    <!-- Main Header -->
+    <header class="header flex items-center justify-between px-6 bg-white border-b border-gray-200">
+      <div class="flex items-center gap-3">
+        <div class="logo-box">S</div>
+        <h1 class="font-sans font-bold text-lg text-gray-900">Salsa Rhythm Sync</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Elegant hidden file input with custom label -->
+        <label for="audio-upload" class="btn btn-secondary cursor-pointer">
+          Importer Fichier
+        </label>
+        <input type="file" id="audio-upload" accept="audio/*" class="hidden-input" />
+        <button id="btn-export" class="btn btn-red" disabled>Exporter Vidéo</button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-content flex-1 flex overflow-hidden">
+      
+      <!-- Left: Vertical Video Preview -->
+      <main class="preview-container flex-1 flex justify-center items-center p-5 bg-gray-100">
+        <div class="vertical-preview-wrapper shadow-2xl relative bg-white flex flex-col items-center justify-center overflow-hidden">
+          <!-- Logical 1080x1920 canvas scaled down in CSS -->
+          <canvas id="video-canvas" width="1080" height="1920" class="w-full h-full object-contain bg-white"></canvas>
+          
+          <!-- Drop Overlay if no audio is imported -->
+          <div id="drop-zone" class="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-95 p-6 text-center select-none cursor-pointer">
+            <div class="drop-icon">🎵</div>
+            <h3 class="font-bold text-lg text-gray-800 mt-4">Glissez votre musique Salsa ici</h3>
+            <p class="text-xs text-gray-500 mt-2 max-w-xs">Déposez un fichier MP3, WAV ou M4A pour débuter l'analyse automatique du tempo.</p>
+          </div>
+
+          <!-- Analysis Loading Overlay -->
+          <div id="loading-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-95 p-6 text-center hidden">
+            <div class="spinner"></div>
+            <h3 class="font-bold text-lg text-gray-800 mt-4">Décodage et analyse en cours...</h3>
+            <p class="text-xs text-gray-500 mt-2">Notre algorithme calcule l'enveloppe d'attaque et estime le BPM optimal.</p>
+          </div>
+        </div>
+      </main>
+
+      <!-- Right: Control Panel -->
+      <aside class="controls-panel bg-white border-l border-gray-200 p-6 flex flex-col justify-between overflow-y-auto w-80">
+        <div class="flex flex-col gap-6">
+          <!-- Audio Information -->
+          <div class="control-group">
+            <div class="section-title">Source Audio</div>
+            <div id="active-filename" class="text-xs font-semibold text-gray-600 truncate bg-gray-50 p-2 rounded border border-gray-100 mb-2">
+              Aucun fichier chargé
+            </div>
+            
+            <!-- YouTube Link Importer -->
+            <div class="flex flex-col gap-1 mt-2 pt-2 border-t border-gray-100">
+              <span class="text-3xs uppercase font-bold text-gray-400 tracking-wider">Importer via YouTube</span>
+              <div class="flex gap-1">
+                <input type="text" id="input-yt-url" placeholder="Ex: https://youtu.be/..." class="flex-1 bg-gray-50 border border-gray-200 rounded p-1 px-1.5 text-xs outline-none focus:border-red-500 font-sans" />
+                <button id="btn-yt-import" class="btn btn-red text-xs py-1 px-2.5 font-bold" title="Charger la musique depuis YouTube">OK</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Onset Analysis & Setup -->
+          <div class="control-group">
+            <div class="section-title">Analyse Rythmique</div>
+            <div class="flex flex-col gap-2">
+              <div class="input-field flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded">
+                <div class="flex flex-col gap-1">
+                  <span class="text-xs text-gray-500">BPM estimé</span>
+                  <div class="flex gap-1 text-right">
+                    <button id="btn-bpm-div2" class="px-1 text-3xs border border-gray-300 bg-white rounded cursor-pointer hover:bg-gray-100 text-gray-600 font-bold font-sans">/2</button>
+                    <button id="btn-bpm-mul2" class="px-1 text-3xs border border-gray-300 bg-white rounded cursor-pointer hover:bg-gray-100 text-gray-600 font-bold font-sans">x2</button>
+                  </div>
+                </div>
+                <input type="number" id="input-bpm" value="180" step="0.5" min="40" max="300" class="font-bold text-right text-gray-800 bg-transparent outline-none w-24 border-b border-dashed border-gray-300 focus:border-red-500" />
+              </div>
+              <div class="input-field flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded">
+                <span class="text-xs text-gray-500">Départ (S)</span>
+                <input type="number" id="input-offset" value="0.00" step="0.001" class="font-bold text-right text-gray-800 bg-transparent outline-none w-24 border-b border-dashed border-gray-300 focus:border-red-500" />
+              </div>
+              
+              <!-- Setup Buttons -->
+              <div class="grid grid-cols-2 gap-2 mt-2">
+                <button id="btn-tap-bpm" class="btn btn-secondary font-semibold text-xs py-2">Tap BPM</button>
+                <button id="btn-place-1" class="btn btn-red font-semibold text-xs py-2" title="Marque le temps 1 de la salsa (recommencez pour calibrer)">Placer 1</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fine Adjustments -->
+          <div class="control-group">
+            <div class="section-title">Calage Manuel de la Grille</div>
+            <div class="grid grid-cols-4 gap-1 mb-2 biography-grid">
+              <button id="adj-sub-010" class="btn btn-secondary text-2xs py-1" title="Décaler de -0.10s">-0.10</button>
+              <button id="adj-sub-001" class="btn btn-secondary text-2xs py-1" title="Décaler de -0.01s">-0.01</button>
+              <button id="adj-add-001" class="btn btn-secondary text-2xs py-1" title="Décaler de +0.01s">+0.01</button>
+              <button id="adj-add-010" class="btn btn-secondary text-2xs py-1" title="Décaler de +0.10s">+0.10</button>
+            </div>
+            <button id="btn-shift-phrase" class="btn btn-secondary text-2xs font-bold py-1.5 w-full justify-center flex items-center gap-1.5 border border-dashed border-gray-300 hover:border-red-400 hover:text-red-500 cursor-pointer" title="Décale la grille de 4 temps pour inverser instantanément les temps 1 et 5">
+              🔄 Inverser 1 ⇄ 5 (Décale de 4 temps)
+            </button>
+            <div class="text-3xs text-gray-400 mt-2 text-center">Ajuste le décalage (départ) de la grille ou permute le 1 et le 5</div>
+          </div>
+
+        </div>
+
+        <!-- Master Audio controls -->
+        <div class="audio-controls-group border-t border-gray-100 pt-4 mt-4">
+          <div class="section-title pb-2">Contrôles Audio</div>
+          <div class="flex items-center gap-3">
+            <button id="btn-audio-prev" class="audio-ctrl-btn p-2 text-gray-600 hover:text-gray-900 border border-gray-100 bg-gray-50 rounded-full" title="Arrêt">⏹</button>
+            <button id="btn-audio-play" class="audio-play-btn w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center shadow hover:bg-slate-800" title="Lecture / Pause">▶</button>
+            <div class="flex-1 flex flex-col gap-1">
+              <div class="flex justify-between items-center text-3xs text-gray-500">
+                <span>Volume</span>
+                <span id="volume-val">80%</span>
+              </div>
+              <input type="range" id="volume-slider" min="0" max="100" value="80" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-slate-900" />
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bottom: Waveform & Analysis Timeline -->
+    <div class="timeline-container bg-white border-t border-gray-200 px-6 py-4 flex flex-col h-40">
+      <div class="flex justify-between items-center mb-1">
+        <div class="section-title margin-none">Timeline d'analyse rythmique (Forme d'onde & Grille)</div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-500 font-medium">Vue Spectre (Zoom)</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-3xs text-gray-400 font-mono">Détail</span>
+            <input type="range" id="zoom-slider" min="5" max="150" value="45" class="zoom-range h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-slate-900 w-28" />
+            <span class="text-3xs text-gray-400 font-mono">Global</span>
+          </div>
+        </div>
+      </div>
+      <!-- Interactive canvas for waveform and peaks drawing -->
+      <div class="waveform-area flex-1 bg-gray-50 border border-gray-100 rounded relative overflow-hidden">
+        <canvas id="timeline-canvas" class="absolute inset-0 w-full h-full cursor-pointer"></canvas>
+      </div>
+      <div id="timeline-time" class="flex justify-between font-mono text-3xs text-gray-400 mt-1.5 select-none">
+        <span>0:00</span>
+        <span id="cur-playback-time">0:00.00 / 0:00.00</span>
+        <span>0:00</span>
+      </div>
+    </div>
+
+    <!-- Exporting / Rendering Overlay Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-6 hidden z-50">
+      <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full border border-gray-100 text-center flex flex-col items-center">
+        <div class="exporter-spinner animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500 mb-4"></div>
+        <h3 id="export-status" class="font-sans font-bold text-lg text-gray-900">Préparation de l'export...</h3>
+        <p class="text-xs text-gray-500 mt-2">L'enregistrement de la vidéo s'effectue en temps réel pour synchroniser l'audio. Ne fermez pas l'onglet.</p>
+        
+        <div class="w-full bg-gray-100 rounded-full h-2 mt-6 mb-2 overflow-hidden">
+          <div id="export-progress-bar" class="bg-red-500 h-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <span id="export-percent" class="font-mono text-xs font-bold text-gray-700">0%</span>
+
+        <button id="btn-cancel-export" class="btn btn-secondary mt-6 font-semibold py-2 px-8 w-full">Annuler l'export</button>
+      </div>
+    </div>
+
+    <!-- Core App Logic -->
+    <script src="app.js"></script>
+  </body>
+</html>

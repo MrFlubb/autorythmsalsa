@@ -1,0 +1,6 @@
+{
+  "name": "Salsa Rhythm Sync",
+  "description": "Analyse le rythme Salsa d'un fichier audio, permet de caler la grille rythmique et d'exporter une vidéo verticale de démonstration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
